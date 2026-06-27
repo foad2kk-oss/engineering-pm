@@ -124,17 +124,20 @@ const Projects: React.FC = () => {
       saveProject(); return;
     }
     const engObjs = engineers.filter(e => form.selectedEngineers.includes(e.id));
-    const hoursPerEng = Math.ceil(form.totalHours / engObjs.length);
+    const wDays = getWorkDays(form.startDate, form.deadline);
+    // Hours per engineer per day = total ÷ (engineers × work days), rounded to 1 decimal
+    const hoursPerEngPerDay = engObjs.length > 0 && wDays > 0
+      ? Math.round((form.totalHours / (engObjs.length * wDays)) * 10) / 10
+      : HOURS_PER_DAY;
     const tasks: string[] = [];
     engObjs.forEach(eng => {
-      let remaining = hoursPerEng;
       const day = new Date(form.startDate);
-      while (remaining > 0 && day <= new Date(form.deadline)) {
+      const deadline = new Date(form.deadline);
+      while (day <= deadline) {
         const dow = day.getDay();
-        if (dow !== 5 && dow !== 6 && !eng.vacationDays.includes(day.toISOString().split('T')[0])) {
-          const h = Math.min(remaining, HOURS_PER_DAY);
-          tasks.push(`${language==='ar'? eng.nameAr||eng.name : eng.name} | ${day.toISOString().split('T')[0]} | ${h}h`);
-          remaining -= h;
+        const dateStr = day.toISOString().split('T')[0];
+        if (dow !== 5 && dow !== 6 && !eng.vacationDays.includes(dateStr)) {
+          tasks.push(`${language==='ar'? eng.nameAr||eng.name : eng.name} | ${dateStr} | ${hoursPerEngPerDay}h`);
         }
         day.setDate(day.getDate() + 1);
       }

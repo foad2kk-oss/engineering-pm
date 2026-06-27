@@ -117,27 +117,66 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => { clearTimeout(timeout); unsubs.forEach(u => u()); };
   }, []);
 
-  // Engineers
-  const addEngineer    = useCallback((e: Engineer)  => { upsert('engineers', e.id, e); }, []);
-  const updateEngineer = useCallback((e: Engineer)  => { upsert('engineers', e.id, e); }, []);
-  const deleteEngineer = useCallback((id: string)   => { remove('engineers', id); }, []);
+  // Engineers — optimistic update then sync to Firestore
+  const addEngineer    = useCallback((e: Engineer) => {
+    setEngineers(prev => { const next = [...prev.filter(x=>x.id!==e.id), e]; saveLS('pm_engineers', next); return next; });
+    upsert('engineers', e.id, e);
+  }, []);
+  const updateEngineer = useCallback((e: Engineer) => {
+    setEngineers(prev => { const next = prev.map(x=>x.id===e.id?e:x); saveLS('pm_engineers', next); return next; });
+    upsert('engineers', e.id, e);
+  }, []);
+  const deleteEngineer = useCallback((id: string) => {
+    setEngineers(prev => { const next = prev.filter(x=>x.id!==id); saveLS('pm_engineers', next); return next; });
+    remove('engineers', id);
+  }, []);
 
-  // Projects
-  const addProject     = useCallback((p: Project)   => { upsert('projects', p.id, p); }, []);
-  const updateProject  = useCallback((p: Project)   => { upsert('projects', p.id, p); }, []);
-  const deleteProject  = useCallback((id: string)   => { remove('projects', id); }, []);
+  // Projects — optimistic update then sync to Firestore
+  const addProject = useCallback((p: Project) => {
+    // Strip undefined fields so Firestore doesn't reject them
+    const clean = Object.fromEntries(Object.entries(p).filter(([,v])=>v!==undefined)) as Project;
+    setProjects(prev => { const next = [...prev.filter(x=>x.id!==clean.id), clean]; saveLS('pm_projects', next); return next; });
+    upsert('projects', clean.id, clean);
+  }, []);
+  const updateProject = useCallback((p: Project) => {
+    const clean = Object.fromEntries(Object.entries(p).filter(([,v])=>v!==undefined)) as Project;
+    setProjects(prev => { const next = prev.map(x=>x.id===clean.id?clean:x); saveLS('pm_projects', next); return next; });
+    upsert('projects', clean.id, clean);
+  }, []);
+  const deleteProject = useCallback((id: string) => {
+    setProjects(prev => { const next = prev.filter(x=>x.id!==id); saveLS('pm_projects', next); return next; });
+    remove('projects', id);
+  }, []);
 
   // Tasks
-  const addTask        = useCallback((t: Task)      => { upsert('tasks', t.id, t); }, []);
+  const addTask = useCallback((t: Task) => {
+    setTasks(prev => { const next = [...prev.filter(x=>x.id!==t.id), t]; saveLS('pm_tasks', next); return next; });
+    upsert('tasks', t.id, t);
+  }, []);
 
   // Meetings
-  const addMeeting     = useCallback((m: Meeting)   => { upsert('meetings', m.id, m); }, []);
-  const deleteMeeting  = useCallback((id: string)   => { remove('meetings', id); }, []);
+  const addMeeting = useCallback((m: Meeting) => {
+    setMeetings(prev => { const next = [...prev.filter(x=>x.id!==m.id), m]; saveLS('pm_meetings', next); return next; });
+    upsert('meetings', m.id, m);
+  }, []);
+  const deleteMeeting = useCallback((id: string) => {
+    setMeetings(prev => { const next = prev.filter(x=>x.id!==id); saveLS('pm_meetings', next); return next; });
+    remove('meetings', id);
+  }, []);
 
   // Clients
-  const addClient      = useCallback((c: Client)    => { upsert('clients', c.id, c); }, []);
-  const updateClient   = useCallback((c: Client)    => { upsert('clients', c.id, c); }, []);
-  const deleteClient   = useCallback((id: string)   => { remove('clients', id); }, []);
+  const addClient = useCallback((c: Client) => {
+    setClients(prev => { const next = [...prev.filter(x=>x.id!==c.id), c]; saveLS('pm_clients', next); return next; });
+    upsert('clients', c.id, c);
+  }, []);
+  const updateClient = useCallback((c: Client) => {
+    setClients(prev => { const next = prev.map(x=>x.id===c.id?c:x); saveLS('pm_clients', next); return next; });
+    upsert('clients', c.id, c);
+  }, []);
+  const deleteClient = useCallback((id: string) => {
+    setClients(prev => { const next = prev.filter(x=>x.id!==id); saveLS('pm_clients', next); return next; });
+    remove('clients', id);
+  }, []);
 
   return (
     <DataContext.Provider value={{

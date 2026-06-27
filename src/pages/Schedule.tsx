@@ -438,13 +438,33 @@ const Schedule: React.FC = () => {
             const isPast  = date < todayStr;
             const dateObj = new Date(date + 'T12:00:00');
 
+            // ── حساب ملخص اليوم ──
+            const projectsWithHours = dProjects.map(p => {
+              const wDays = getWorkDays(p.startDate, p.deadline);
+              const hDay  = wDays > 0 && p.engineers.length > 0
+                ? Math.round((p.totalHours / (p.engineers.length * wDays)) * 10) / 10 : 0;
+              return { ...p, hDay };
+            });
+            // إجمالي ساعات اليوم (مجموع hDay × عدد مهندسي كل مشروع)
+            const totalHoursDay   = projectsWithHours.reduce((s, p) => s + p.hDay * p.engineers.length, 0);
+            // إجمالي المهندسين الفريدين
+            const allEngIds       = [...new Set(dProjects.flatMap(p => p.engineers))];
+            const totalEngineers  = allEngIds.length;
+            // متوسط ساعات لكل مهندس
+            const avgHoursPerEng  = totalEngineers > 0
+              ? Math.round((totalHoursDay / totalEngineers) * 10) / 10 : 0;
+            const loadPct         = Math.min((avgHoursPerEng / 8.5) * 100, 100);
+            const loadColor       = avgHoursPerEng > 8.5 ? '#ef4444' : avgHoursPerEng >= 6 ? '#eab308' : '#22c55e';
+
             return (
               <div key={date}
-                className={`card border-2 transition-shadow hover:shadow-lg ${isToday ? 'border-amber-400 shadow-amber-100 dark:shadow-amber-900/20' : isPast ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-700'}`}>
-                <div className="flex items-center justify-between mb-4">
+                className={`card border-2 transition-shadow hover:shadow-lg ${isToday ? 'border-amber-400' : isPast ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-700'}`}>
+
+                {/* ── رأس البطاقة ── */}
+                <div className="flex items-start justify-between mb-4 gap-3">
                   <div className="flex items-center gap-3">
-                    <div className={`text-center px-4 py-2 rounded-2xl shadow-sm ${isToday ? 'bg-amber-500 text-white' : isPast ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-600 text-white'}`}>
-                      <p className="text-lg font-black leading-none">{dateObj.getDate()}</p>
+                    <div className={`text-center px-4 py-2 rounded-2xl shadow-sm flex-shrink-0 ${isToday ? 'bg-amber-500 text-white' : isPast ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-600 text-white'}`}>
+                      <p className="text-xl font-black leading-none">{dateObj.getDate()}</p>
                       <p className="text-[10px] font-medium opacity-90">
                         {dateObj.toLocaleString(ar ? 'ar-SA' : 'en-US', { month: 'short' })}
                       </p>
@@ -455,34 +475,87 @@ const Schedule: React.FC = () => {
                          isPast  ? (ar ? '⚠️ انتهى الموعد' : '⚠️ Past Due') :
                          (ar ? '📅 موعد التسليم' : '📅 Delivery')}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 mt-0.5">
                         {dProjects.length} {ar ? 'مشروع' : 'project(s)'} · {depts.length} {ar ? 'قسم' : 'dept(s)'}
                       </p>
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {depts.map(d => (
+                          <span key={d} className="text-[10px] text-white px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: departmentColors[d] }}>
+                            {ar ? departmentLabels[d].ar : departmentLabels[d].en}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 flex-wrap justify-end max-w-xs">
-                    {depts.map(d => (
-                      <span key={d} className="text-[10px] text-white px-2 py-1 rounded-full font-semibold shadow-sm"
-                        style={{ background: departmentColors[d] }}>
-                        {ar ? departmentLabels[d].ar : departmentLabels[d].en}
-                      </span>
-                    ))}
+
+                  {/* ── ملخص ساعات اليوم ── */}
+                  <div className="flex-shrink-0 bg-gray-50 dark:bg-gray-700/40 rounded-2xl p-3 min-w-[160px] border border-gray-100 dark:border-gray-600">
+                    <p className="text-[10px] text-gray-500 font-semibold mb-2 text-center">
+                      {ar ? 'توزيع اليوم' : "Day Summary"}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="text-center">
+                        <p className="text-xl font-black text-blue-600">{totalEngineers}</p>
+                        <p className="text-[9px] text-gray-400">{ar ? 'مهندس' : 'engineers'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-black" style={{ color: loadColor }}>
+                          {totalHoursDay.toFixed(1)}
+                        </p>
+                        <p className="text-[9px] text-gray-400">{ar ? 'ساعة كلي' : 'total hrs'}</p>
+                      </div>
+                    </div>
+                    {/* شريط تحميل اليوم */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[9px] text-gray-400">
+                        <span>{ar ? 'معدل/مهندس' : 'avg/eng'}</span>
+                        <span className="font-bold" style={{ color: loadColor }}>{avgHoursPerEng}h / 8.5h</span>
+                      </div>
+                      <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${loadPct}%`, background: loadColor }} />
+                      </div>
+                    </div>
+                    {/* تقسيم الـ 8.5h على المشاريع */}
+                    {projectsWithHours.length > 1 && (
+                      <div className="mt-2">
+                        <p className="text-[9px] text-gray-400 mb-1">{ar ? 'توزيع الـ 8.5h:' : '8.5h split:'}</p>
+                        <div className="flex h-3 rounded-full overflow-hidden gap-px">
+                          {projectsWithHours.map((p, i) => {
+                            const segPct = avgHoursPerEng > 0 ? (p.hDay / avgHoursPerEng) * 100 : 0;
+                            return (
+                              <div key={p.id} title={`${p.nameAr || p.name}: ${p.hDay}h`}
+                                className="h-full transition-all"
+                                style={{ width: `${segPct}%`, background: departmentColors[p.department], opacity: 0.85 + i * 0.05 }} />
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                          {projectsWithHours.map(p => (
+                            <span key={p.id} className="text-[8px] text-gray-500 flex items-center gap-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: departmentColors[p.department] }} />
+                              {p.hDay}h
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
+                {/* ── قائمة المشاريع ── */}
                 <div className="space-y-2">
-                  {dProjects.map(p => {
-                    const sc = statusConfig[p.status];
-                    const dl = departmentLabels[p.department];
+                  {projectsWithHours.map(p => {
+                    const sc     = statusConfig[p.status];
+                    const dl     = departmentLabels[p.department];
                     const mgrObj = p.managerId ? engineers.find(e => e.id === p.managerId) : null;
-                    const wDays = getWorkDays(p.startDate, p.deadline);
-                    const hDay  = wDays > 0 && p.engineers.length > 0
-                      ? Math.round((p.totalHours / (p.engineers.length * wDays)) * 10) / 10 : 0;
+                    const pct    = avgHoursPerEng > 0 ? Math.round((p.hDay / avgHoursPerEng) * 100) : 0;
                     return (
                       <div key={p.id}
                         className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/30 hover:border-blue-200 dark:hover:border-blue-700 transition-colors">
-                        <div className="w-1 h-12 rounded-full flex-shrink-0" style={{ background: departmentColors[p.department] }} />
-                        <div className="flex-1 min-w-0">
+                        <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: departmentColors[p.department] }} />
+                        <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
                               {ar ? p.nameAr || p.name : p.name}
@@ -497,7 +570,7 @@ const Schedule: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <span className="text-[10px] font-semibold" style={{ color: departmentColors[p.department] }}>
                               {ar ? dl.ar : dl.en}
                             </span>
@@ -506,19 +579,25 @@ const Schedule: React.FC = () => {
                                 👤 {ar ? mgrObj.nameAr || mgrObj.name : mgrObj.name}
                               </span>
                             )}
-                            <span className="text-[10px] text-gray-400">{p.engineers.length} {ar ? 'مهندس' : 'eng'}</span>
+                            <span className="text-[10px] text-gray-400">
+                              {p.engineers.length} {ar ? 'مهندس' : 'eng'}
+                            </span>
                           </div>
-                        </div>
-                        <div className="flex-shrink-0 text-end">
-                          <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-1">
-                            <div className="h-full rounded-full" style={{ width: `${p.progress}%`, background: statusHex[p.status] }} />
-                          </div>
-                          <p className="text-[10px] text-gray-500">{p.progress}%</p>
-                          {hDay > 0 && (
-                            <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">
-                              {hDay}h/{ar ? 'ي' : 'd'}
-                            </p>
+                          {/* شريط حصة المشروع من اليوم */}
+                          {p.hDay > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: departmentColors[p.department] }} />
+                              </div>
+                              <span className="text-[9px] text-gray-400 whitespace-nowrap">{pct}%</span>
+                            </div>
                           )}
+                        </div>
+                        {/* ساعات المشروع لهذا اليوم */}
+                        <div className="flex-shrink-0 text-end">
+                          <p className="text-lg font-black text-blue-600 leading-none">{p.hDay}</p>
+                          <p className="text-[9px] text-gray-400">{ar ? 'ساعة/مهندس' : 'h/eng'}</p>
+                          <p className="text-[9px] text-gray-500 mt-1">{p.progress}%</p>
                         </div>
                       </div>
                     );

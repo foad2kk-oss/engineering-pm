@@ -4,8 +4,8 @@ import { db } from '../lib/firebase';
 import {
   collection, doc, onSnapshot,
   setDoc, deleteDoc,
-  QuerySnapshot, DocumentData,
 } from 'firebase/firestore';
+import type { QuerySnapshot, DocumentData } from 'firebase/firestore';
 
 interface DataContextType {
   engineers: Engineer[];

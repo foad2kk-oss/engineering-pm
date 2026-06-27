@@ -44,7 +44,7 @@ const Login: React.FC = () => {
   const roleEngineers = useMemo(() => {
     if (!selectedRole || isDeptManager) return [];
     if (selectedRole === 'admin')
-      return engineers.filter(e => e.role === 'admin' || e.role === 'general-manager' || e.role === 'project-manager');
+      return engineers.filter(e => e.role === 'admin');
     return engineers.filter(e => e.role === selectedRole);
   }, [engineers, selectedRole, isDeptManager]);
 

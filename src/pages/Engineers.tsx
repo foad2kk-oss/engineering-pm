@@ -16,6 +16,7 @@ const JOB_TITLES = [
 ];
 
 const ROLES: { value: UserRole; en: string; ar: string }[] = [
+  { value: 'admin',              en: 'Office Manager',     ar: 'مدير المكتب' },
   { value: 'project-manager',    en: 'Project Manager',    ar: 'مدير مشاريع' },
   { value: 'department-manager', en: 'Department Manager', ar: 'مدير قسم' },
   { value: 'engineer',           en: 'Engineer',           ar: 'مهندس' },

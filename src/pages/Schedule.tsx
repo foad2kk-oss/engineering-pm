@@ -180,6 +180,26 @@ const Schedule: React.FC = () => {
         </div>
       </div>
 
+      {/* Date picker — any day */}
+      <div className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
+        <Calendar size={15} className="text-indigo-500 flex-shrink-0" />
+        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 whitespace-nowrap">
+          {ar ? 'اختر يوم لعرض خطة عمله:' : 'Pick any day:'}
+        </span>
+        <input
+          type="date"
+          className="input text-sm py-1.5 flex-1 max-w-[180px] border-indigo-200 dark:border-indigo-700 focus:ring-indigo-400"
+          value={selectedDay || ''}
+          onChange={e => setSelectedDay(e.target.value || null)}
+        />
+        {selectedDay && (
+          <button onClick={() => setSelectedDay(null)}
+            className="text-xs text-indigo-400 hover:text-red-500 flex items-center gap-1">
+            <X size={12} />{ar ? 'مسح' : 'Clear'}
+          </button>
+        )}
+      </div>
+
       {/* Project filter */}
       <div className="flex items-center gap-3">
         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">

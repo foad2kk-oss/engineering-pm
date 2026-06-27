@@ -72,6 +72,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const total = 6;
     const checkDone = () => { done++; if (done >= total) setLoading(false); };
 
+    // Fallback: if Firebase doesn't respond in 8 seconds, stop loading anyway
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
     const unsubs = [
       onSnapshot(collection(db, 'engineers'), snap => {
         const data = snapToArr<Engineer>(snap);
@@ -111,7 +114,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
     ];
 
-    return () => unsubs.forEach(u => u());
+    return () => { clearTimeout(timeout); unsubs.forEach(u => u()); };
   }, []);
 
   // Engineers

@@ -462,19 +462,29 @@ const Schedule: React.FC = () => {
 
                 {/* ── رأس البطاقة ── */}
                 <div className="flex items-start justify-between mb-4 gap-3">
+                  {/* التاريخ قابل للنقر لفتح لوح المشاريع النشطة */}
                   <div className="flex items-center gap-3">
-                    <div className={`text-center px-4 py-2 rounded-2xl shadow-sm flex-shrink-0 ${isToday ? 'bg-amber-500 text-white' : isPast ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-600 text-white'}`}>
+                    <button
+                      onClick={() => setSelectedDay(date)}
+                      className={`text-center px-4 py-2 rounded-2xl shadow-sm flex-shrink-0 transition-transform hover:scale-105 active:scale-95 ${isToday ? 'bg-amber-500 text-white' : isPast ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-600 text-white'}`}
+                      title={ar ? 'انقر لعرض مشاريع هذا اليوم' : 'Click to see active projects'}>
                       <p className="text-xl font-black leading-none">{dateObj.getDate()}</p>
                       <p className="text-[10px] font-medium opacity-90">
                         {dateObj.toLocaleString(ar ? 'ar-SA' : 'en-US', { month: 'short' })}
                       </p>
-                    </div>
+                    </button>
                     <div>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white">
-                        {isToday ? (ar ? '⚡ اليوم' : '⚡ Today') :
-                         isPast  ? (ar ? '⚠️ انتهى الموعد' : '⚠️ Past Due') :
-                         (ar ? '📅 موعد التسليم' : '📅 Delivery')}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {isToday ? (ar ? '⚡ اليوم' : '⚡ Today') :
+                           isPast  ? (ar ? '⚠️ انتهى الموعد' : '⚠️ Past Due') :
+                           (ar ? '📅 موعد التسليم' : '📅 Delivery')}
+                        </p>
+                        <button onClick={() => setSelectedDay(date)}
+                          className="text-[10px] text-blue-600 hover:underline flex items-center gap-1">
+                          <Clock size={10}/>{ar ? 'عرض خطة اليوم' : 'Day plan'}
+                        </button>
+                      </div>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {dProjects.length} {ar ? 'مشروع' : 'project(s)'} · {depts.length} {ar ? 'قسم' : 'dept(s)'}
                       </p>

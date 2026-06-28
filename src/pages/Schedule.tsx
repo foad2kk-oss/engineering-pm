@@ -698,10 +698,17 @@ const Schedule: React.FC = () => {
                   {dayProjects.map((p, idx) => {
                     const dl = departmentLabels[p.department];
                     const pct = totalDayHours > 0 ? (p.hPerEngPerDay / totalDayHours) * 100 : 0;
+                    // موظفو هذا المشروع (بدون admin)
+                    const projEngineers = p.engineers
+                      .map(id => engineers.find(e => e.id === id))
+                      .filter(e => e && e.role !== 'admin') as typeof engineers;
+
                     return (
                       <div key={p.id}
-                        className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
+                        className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 overflow-hidden">
+
+                        {/* رأس المشروع */}
+                        <div className="flex items-start justify-between gap-2 p-4 pb-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-[10px] font-bold text-gray-400">#{idx + 1}</span>
@@ -719,31 +726,72 @@ const Schedule: React.FC = () => {
                                   {p.phase.replace('-', ' ')}
                                 </span>
                               )}
+                              <span className="text-[9px] text-gray-400">📅 {p.deadline}</span>
                             </div>
                           </div>
                           <div className="text-end flex-shrink-0">
-                            <p className="text-xl font-black text-blue-600">{p.hPerEngPerDay}</p>
-                            <p className="text-[10px] text-gray-400">{ar ? 'ساعة/مهندس/يوم' : 'h/eng/day'}</p>
+                            <p className="text-2xl font-black text-blue-600 leading-none">{p.hPerEngPerDay}h</p>
+                            <p className="text-[10px] text-gray-400">{ar ? 'لكل مهندس' : 'per eng'}</p>
                           </div>
                         </div>
 
-                        {/* Bar share */}
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[10px] text-gray-500">
-                            <span>{ar ? 'حصة هذا المشروع من اليوم' : 'Share of today'}</span>
-                            <span>{Math.round(pct)}%</span>
-                          </div>
-                          <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all"
-                              style={{ width: `${pct}%`, background: departmentColors[p.department] }} />
+                        {/* شريط التوزيع */}
+                        <div className="px-4 pb-2">
+                          <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: departmentColors[p.department] }} />
                           </div>
                         </div>
 
-                        <div className="flex gap-4 text-[10px] text-gray-500 pt-1">
-                          <span>📅 {ar ? 'ينتهي:' : 'Ends:'} {p.deadline}</span>
-                          <span>👥 {p.engineers.length} {ar ? 'مهندس' : 'eng'}</span>
-                          <span>⏱ {p.totalHours}h {ar ? 'إجمالي' : 'total'}</span>
-                        </div>
+                        {/* جدول الموظفين */}
+                        {projEngineers.length > 0 && (
+                          <div className="border-t border-gray-100 dark:border-gray-700">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-gray-100 dark:bg-gray-700/60">
+                                  <th className="px-3 py-1.5 text-start text-[10px] font-semibold text-gray-500">
+                                    {ar ? 'اسم الموظف' : 'Engineer'}
+                                  </th>
+                                  <th className="px-3 py-1.5 text-start text-[10px] font-semibold text-gray-500">
+                                    {ar ? 'القسم' : 'Dept'}
+                                  </th>
+                                  <th className="px-3 py-1.5 text-end text-[10px] font-semibold text-blue-600">
+                                    {ar ? 'الساعات' : 'Hours'}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {projEngineers.map((eng, ei) => (
+                                  <tr key={eng.id}
+                                    className={`border-t border-gray-100 dark:border-gray-700/50 ${ei % 2 !== 0 ? 'bg-white/60 dark:bg-gray-800/20' : ''}`}>
+                                    <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">
+                                      {ar ? eng.nameAr || eng.name : eng.name}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full"
+                                        style={{ background: departmentColors[eng.department] }}>
+                                        {ar ? departmentLabels[eng.department].ar : departmentLabels[eng.department].en}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-end font-black text-blue-600">
+                                      {p.hPerEngPerDay}h
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t-2 border-gray-200 dark:border-gray-600 bg-blue-50 dark:bg-blue-900/20">
+                                  <td className="px-3 py-2 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                                    {ar ? `الإجمالي (${projEngineers.length} موظف)` : `Total (${projEngineers.length} eng)`}
+                                  </td>
+                                  <td />
+                                  <td className="px-3 py-2 text-end font-black text-blue-700 dark:text-blue-400">
+                                    {Math.round(projEngineers.length * p.hPerEngPerDay * 10) / 10}h
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

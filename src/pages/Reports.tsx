@@ -9,8 +9,9 @@ import type { Department } from '../types';
 const DEPTS: Department[] = ['architectural','structural','mechanical','electrical'];
 
 const Reports: React.FC = () => {
-  const { language } = useApp();
+  const { language, loggedInUser } = useApp();
   const { projects, engineers, clients, meetings } = useData();
+  const canSeeClients = loggedInUser?.role === 'admin';
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'idle'|'success'|'error'>('idle');
@@ -328,9 +329,11 @@ const Reports: React.FC = () => {
           <button onClick={printDeliverySchedule} className="btn-secondary text-xs">
             <Table2 size={13}/>{language==='ar'?'جدول التسليمات':'Delivery Schedule'}
           </button>
-          <button onClick={printClients} className="btn-secondary text-xs">
-            <Printer size={13}/>{language==='ar'?'قائمة العملاء':'Clients List'}
-          </button>
+          {canSeeClients && (
+            <button onClick={printClients} className="btn-secondary text-xs">
+              <Printer size={13}/>{language==='ar'?'قائمة العملاء':'Clients List'}
+            </button>
+          )}
           <button onClick={printMeetings} className="btn-secondary text-xs">
             <Calendar size={13}/>{language==='ar'?'قائمة الاجتماعات':'Meetings List'}
           </button>

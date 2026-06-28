@@ -796,14 +796,70 @@ const Schedule: React.FC = () => {
                     );
                   })}
 
-                  {/* Summary */}
-                  <div className={`p-3 rounded-xl text-xs font-semibold text-center mt-2 ${totalDayHours > 8.5 ? 'bg-red-100 dark:bg-red-900/30 text-red-700' : totalDayHours >= 7 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700' : 'bg-green-100 dark:bg-green-900/30 text-green-700'}`}>
-                    {totalDayHours > 8.5
-                      ? (ar ? `⚠️ الحمل يتجاوز 8.5h (${totalDayHours.toFixed(1)}h)` : `⚠️ Overloaded: ${totalDayHours.toFixed(1)}h`)
-                      : totalDayHours >= 7
-                      ? (ar ? `✅ يوم مكتظ: ${totalDayHours.toFixed(1)}h من 8.5h` : `✅ Busy day: ${totalDayHours.toFixed(1)}h / 8.5h`)
-                      : (ar ? `🟢 يوم خفيف: ${totalDayHours.toFixed(1)}h من 8.5h` : `🟢 Light day: ${totalDayHours.toFixed(1)}h / 8.5h`)}
-                  </div>
+                  {/* ملخص كل موظف = 8.5h */}
+                  {(() => {
+                    // جمع كل الموظفين الفريدين عبر المشاريع
+                    const engMap = new Map<string, { eng: typeof engineers[0]; projects: { name: string; hours: number; color: string }[] }>();
+                    dayProjects.forEach(p => {
+                      p.engineers.forEach(id => {
+                        const eng = engineers.find(e => e.id === id);
+                        if (!eng || eng.role === 'admin') return;
+                        if (!engMap.has(id)) engMap.set(id, { eng, projects: [] });
+                        engMap.get(id)!.projects.push({
+                          name: ar ? p.nameAr || p.name : p.name,
+                          hours: p.hPerEngPerDay,
+                          color: departmentColors[p.department],
+                        });
+                      });
+                    });
+                    const engList = Array.from(engMap.values());
+                    if (engList.length === 0) return null;
+                    return (
+                      <div className="border-t-2 border-blue-100 dark:border-blue-800 pt-3 space-y-2">
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          {ar ? '📋 دوام الموظفين (8.5h / يوم):' : '📋 Engineer Schedule (8.5h/day):'}
+                        </p>
+                        {engList.map(({ eng, projects }) => (
+                          <div key={eng.id} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            {/* رأس الموظف */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-700 to-blue-600">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[10px]">
+                                  {(ar ? eng.nameAr || eng.name : eng.name).charAt(0)}
+                                </div>
+                                <span className="text-xs font-bold text-white">
+                                  {ar ? eng.nameAr || eng.name : eng.name}
+                                </span>
+                              </div>
+                              <span className="text-sm font-black text-white">8.5h</span>
+                            </div>
+                            {/* شريط توزيع الألوان */}
+                            <div className="flex h-2">
+                              {projects.map((pr, i) => (
+                                <div key={i} className="h-full" title={`${pr.name}: ${pr.hours}h`}
+                                  style={{ flex: pr.hours, background: pr.color }} />
+                              ))}
+                            </div>
+                            {/* مشاريع الموظف */}
+                            {projects.map((pr, i) => (
+                              <div key={i} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full" style={{ background: pr.color }} />
+                                  <span className="text-gray-700 dark:text-gray-300 truncate max-w-[160px]">{pr.name}</span>
+                                </div>
+                                <span className="font-bold text-blue-600 flex-shrink-0">{pr.hours}h</span>
+                              </div>
+                            ))}
+                            {/* الإجمالي */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-100 dark:border-blue-800">
+                              <span className="text-[10px] font-semibold text-gray-500">{ar ? 'إجمالي الدوام' : 'Total shift'}</span>
+                              <span className="text-sm font-black text-blue-700 dark:text-blue-400">8.5h ✓</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>

@@ -276,8 +276,12 @@ const Schedule: React.FC = () => {
                 const sColor = statusHex[p.status] || '#9ca3af';
                 const sc     = statusConfig[p.status];
                 const wDays  = getWorkDays(p.startDate, p.deadline);
-                const hPerDay = wDays > 0 && p.engineers.length > 0
-                  ? Math.round((p.totalHours / (p.engineers.length * wDays)) * 10) / 10
+                const engCount = p.engineers.filter(id => {
+                  const e = engineers.find(x => x.id === id);
+                  return e && e.role !== 'admin';
+                }).length;
+                const hPerDay = wDays > 0 && engCount > 0
+                  ? Math.round((p.totalHours / (engCount * wDays)) * 10) / 10
                   : 0;
                 const durationLabel = wDays > 0 ? `${wDays}${ar ? 'ي' : 'd'}` : '';
 
@@ -471,9 +475,12 @@ const Schedule: React.FC = () => {
 
             const projectsWithHours = dProjects.map(p => ({ ...p, hDay: hPerProject }));
 
-            // إجمالي المهندسين الفريدين في مشاريع اليوم
+            // إجمالي المهندسين الفريدين (بدون مدير المكتب)
             const allEngIds      = [...new Set(activeOnDate.flatMap(p => p.engineers))];
-            const totalEngineers = allEngIds.length;
+            const totalEngineers = allEngIds.filter(id => {
+              const eng = engineers.find(e => e.id === id);
+              return eng && eng.role !== 'admin';
+            }).length;
             const totalHoursDay  = 8.5; // دائماً 8.5h لكل مهندس
             const avgHoursPerEng = 8.5;
             const loadPct        = 100;

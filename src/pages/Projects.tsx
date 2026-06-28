@@ -82,7 +82,7 @@ const Projects: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
 
   const deptEngineers = useMemo(
-    () => engineers.filter(e => e.department === form.department && e.role !== 'project-manager'),
+    () => engineers.filter(e => e.department === form.department && e.role !== 'project-manager' && e.role !== 'admin'),
     [engineers, form.department]
   );
 
@@ -93,7 +93,7 @@ const Projects: React.FC = () => {
 
   const autoCalcHours = useCallback((startDate: string, deadline: string, dept: Department) => {
     const workDays = getWorkDays(startDate, deadline);
-    const engCount = engineers.filter(e => e.department === dept && e.role !== 'project-manager').length;
+    const engCount = engineers.filter(e => e.department === dept && e.role !== 'project-manager' && e.role !== 'admin').length;
     if (workDays > 0 && engCount > 0) return Math.round(workDays * engCount * HOURS_PER_DAY);
     return 0;
   }, [engineers]);
@@ -102,7 +102,7 @@ const Projects: React.FC = () => {
     const next = { ...form, ...patch };
     if (next.startDate && next.deadline) {
       next.totalHours = autoCalcHours(next.startDate, next.deadline, next.department);
-      next.selectedEngineers = engineers.filter(e => e.department === next.department && e.role !== 'project-manager').map(e => e.id);
+      next.selectedEngineers = engineers.filter(e => e.department === next.department && e.role !== 'project-manager' && e.role !== 'admin').map(e => e.id);
     }
     setForm(next);
   };
@@ -227,7 +227,7 @@ const Projects: React.FC = () => {
   const saveEdit = () => {
     if (!editProject) return;
     const wd = getWorkDays(editForm.startDate, editForm.deadline);
-    const engCount = engineers.filter(e => e.department === editProject.department && e.role !== 'project-manager').length;
+    const engCount = engineers.filter(e => e.department === editProject.department && e.role !== 'project-manager' && e.role !== 'admin').length;
     updateProject({
       ...editProject,
       startDate:  editForm.startDate,

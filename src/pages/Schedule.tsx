@@ -97,20 +97,22 @@ const Schedule: React.FC = () => {
   };
 
   // Day panel: all projects active on selectedDay
+  // المنطق الصحيح: 8.5h ÷ عدد المشاريع النشطة = نصيب كل مشروع
   const dayProjects = useMemo(() => {
     if (!selectedDay) return [];
-    return projects
-      .filter(p => p.startDate && p.deadline && p.startDate <= selectedDay && selectedDay <= p.deadline)
-      .map(p => {
-        const wDays = getWorkDays(p.startDate, p.deadline);
-        const engCount = p.engineers.length || 1;
-        const hPerEngPerDay = wDays > 0 ? Math.round((p.totalHours / (engCount * wDays)) * 10) / 10 : 0;
-        return { ...p, hPerEngPerDay };
-      })
-      .sort((a, b) => b.hPerEngPerDay - a.hPerEngPerDay);
+    const active = projects.filter(
+      p => p.startDate && p.deadline && p.startDate <= selectedDay && selectedDay <= p.deadline
+    );
+    const count = active.length || 1;
+    // كل مشروع يأخذ حصة متساوية من الـ 8.5h
+    const hPerProject = Math.round((8.5 / count) * 10) / 10;
+    return active
+      .map(p => ({ ...p, hPerEngPerDay: hPerProject }))
+      .sort((a, b) => (a.nameAr || a.name).localeCompare(b.nameAr || b.name, 'ar'));
   }, [selectedDay, projects]);
 
-  const totalDayHours = useMemo(() => dayProjects.reduce((s, p) => s + p.hPerEngPerDay, 0), [dayProjects]);
+  // الإجمالي دائماً = 8.5h (مجموع الحصص)
+  const totalDayHours = dayProjects.length > 0 ? 8.5 : 0;
 
   // By-date grouping
   const byDate = useMemo(() => {
@@ -459,22 +461,23 @@ const Schedule: React.FC = () => {
             const dateObj = new Date(date + 'T12:00:00');
 
             // ── حساب ملخص اليوم ──
-            const projectsWithHours = dProjects.map(p => {
-              const wDays = getWorkDays(p.startDate, p.deadline);
-              const hDay  = wDays > 0 && p.engineers.length > 0
-                ? Math.round((p.totalHours / (p.engineers.length * wDays)) * 10) / 10 : 0;
-              return { ...p, hDay };
-            });
-            // إجمالي ساعات اليوم (مجموع hDay × عدد مهندسي كل مشروع)
-            const totalHoursDay   = projectsWithHours.reduce((s, p) => s + p.hDay * p.engineers.length, 0);
-            // إجمالي المهندسين الفريدين
-            const allEngIds       = [...new Set(dProjects.flatMap(p => p.engineers))];
-            const totalEngineers  = allEngIds.length;
-            // متوسط ساعات لكل مهندس
-            const avgHoursPerEng  = totalEngineers > 0
-              ? Math.round((totalHoursDay / totalEngineers) * 10) / 10 : 0;
-            const loadPct         = Math.min((avgHoursPerEng / 8.5) * 100, 100);
-            const loadColor       = avgHoursPerEng > 8.5 ? '#ef4444' : avgHoursPerEng >= 6 ? '#eab308' : '#22c55e';
+            // المشاريع النشطة في تاريخ التسليم هذا
+            // نصيب كل مشروع = 8.5h ÷ عدد المشاريع المتزامنة
+            const activeOnDate = projects.filter(
+              p => p.startDate && p.deadline && p.startDate <= date && date <= p.deadline
+            );
+            const activeCount = activeOnDate.length || 1;
+            const hPerProject = Math.round((8.5 / activeCount) * 10) / 10;
+
+            const projectsWithHours = dProjects.map(p => ({ ...p, hDay: hPerProject }));
+
+            // إجمالي المهندسين الفريدين في مشاريع اليوم
+            const allEngIds      = [...new Set(activeOnDate.flatMap(p => p.engineers))];
+            const totalEngineers = allEngIds.length;
+            const totalHoursDay  = 8.5; // دائماً 8.5h لكل مهندس
+            const avgHoursPerEng = 8.5;
+            const loadPct        = 100;
+            const loadColor      = activeCount > 3 ? '#eab308' : '#22c55e';
 
             return (
               <div key={date}

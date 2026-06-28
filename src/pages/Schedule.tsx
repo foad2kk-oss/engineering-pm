@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useData } from '../contexts/DataContext';
 import { statusConfig, departmentColors, departmentLabels } from '../data/mockData';
@@ -96,23 +96,66 @@ const Schedule: React.FC = () => {
     setSelectedDay(d.toISOString().split('T')[0]);
   };
 
+  // دالة التدوير: تحدد أي مشروعين يعمل عليهما المهندس اليوم (بحد أقصى 2)
+  // إذا كان المهندس لديه 3+ مشاريع، تتناوب المشاريع كل يوم عمل
+  const getEngTodayProjects = useCallback((
+    engProjects: typeof projects,
+    day: string
+  ): { project: typeof projects[0]; hours: number }[] => {
+    if (engProjects.length === 0) return [];
+    // ترتيب بحسب الأقدم في البداية (الأسبقية للأقرب انتهاءً)
+    const sorted = [...engProjects].sort((a, b) => a.deadline.localeCompare(b.deadline));
+    if (sorted.length === 1) return [{ project: sorted[0], hours: 8.5 }];
+    // حساب رقم يوم العمل من أول يوم في المشروع الأول
+    const earliest = sorted[0].startDate || day;
+    const wIdx = getWorkDays(earliest, day);
+    const n = sorted.length;
+    // عدد الأزواج الممكنة
+    const numPairs = Math.ceil(n / 2);
+    const pairIdx = wIdx % numPairs;
+    const i0 = (pairIdx * 2) % n;
+    const i1 = (pairIdx * 2 + 1) % n;
+    if (i0 === i1) return [{ project: sorted[i0], hours: 8.5 }];
+    return [
+      { project: sorted[i0], hours: 4 },
+      { project: sorted[i1], hours: 4.5 },
+    ];
+  }, []);
+
   // Day panel: all projects active on selectedDay
-  // المنطق الصحيح: 8.5h ÷ عدد المشاريع النشطة = نصيب كل مشروع
   const dayProjects = useMemo(() => {
     if (!selectedDay) return [];
-    const active = projects.filter(
-      p => p.startDate && p.deadline && p.startDate <= selectedDay && selectedDay <= p.deadline
-    );
-    const count = active.length || 1;
-    // كل مشروع يأخذ حصة متساوية من الـ 8.5h
-    const hPerProject = Math.round((8.5 / count) * 2) / 2; // تقريب لأقرب 0.5
-    return active
-      .map(p => ({ ...p, hPerEngPerDay: hPerProject }))
-      .sort((a, b) => (a.nameAr || a.name).localeCompare(b.nameAr || b.name, 'ar'));
+    return projects
+      .filter(p => p.startDate && p.deadline && p.startDate <= selectedDay && selectedDay <= p.deadline)
+      .sort((a, b) => a.deadline.localeCompare(b.deadline));
   }, [selectedDay, projects]);
 
-  // الإجمالي دائماً = 8.5h (مجموع الحصص)
   const totalDayHours = dayProjects.length > 0 ? 8.5 : 0;
+
+  // بناء جدول الموظفين مع التدوير
+  const engDaySchedule = useMemo(() => {
+    if (!selectedDay || dayProjects.length === 0) return [];
+    const map = new Map<string, {
+      eng: typeof engineers[0];
+      assigned: { project: typeof projects[0]; hours: number }[];
+      allActive: typeof projects;
+    }>();
+    dayProjects.forEach(p => {
+      p.engineers.forEach(id => {
+        const eng = engineers.find(e => e.id === id);
+        if (!eng || eng.role === 'admin') return;
+        if (!map.has(id)) map.set(id, { eng, assigned: [], allActive: [] });
+        map.get(id)!.allActive.push(p);
+      });
+    });
+    // طبّق التدوير على كل مهندس
+    map.forEach((val, id) => {
+      val.assigned = getEngTodayProjects(val.allActive, selectedDay);
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      (a.eng.nameAr || a.eng.name).localeCompare(b.eng.nameAr || b.eng.name, 'ar')
+    );
+  }, [selectedDay, dayProjects, engineers, getEngTodayProjects]);
 
   // By-date grouping
   const byDate = useMemo(() => {
@@ -685,181 +728,100 @@ const Schedule: React.FC = () => {
             </div>
 
             <div className="p-5 space-y-3">
-              {dayProjects.length === 0 ? (
+              {engDaySchedule.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
                   <p className="text-sm">{ar ? 'لا توجد مشاريع نشطة في هذا اليوم' : 'No active projects this day'}</p>
                 </div>
               ) : (
                 <>
-                  <p className="text-xs text-gray-500 font-medium">
-                    {dayProjects.length} {ar ? 'مشروع نشط — ساعات العمل المطلوبة:' : 'active project(s) — required daily hours:'}
-                  </p>
-                  {dayProjects.map((p, idx) => {
-                    const dl = departmentLabels[p.department];
-                    const pct = totalDayHours > 0 ? (p.hPerEngPerDay / totalDayHours) * 100 : 0;
-                    // موظفو هذا المشروع (بدون admin)
-                    const projEngineers = p.engineers
-                      .map(id => engineers.find(e => e.id === id))
-                      .filter(e => e && e.role !== 'admin') as typeof engineers;
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 font-medium">
+                      {engDaySchedule.length} {ar ? 'موظف — بحد أقصى مشروعين في اليوم:' : 'engineer(s) — max 2 projects/day:'}
+                    </p>
+                    <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                      {dayProjects.length} {ar ? 'مشروع نشط' : 'active projects'}
+                    </span>
+                  </div>
 
-                    return (
-                      <div key={p.id}
-                        className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 overflow-hidden">
+                  <div className="space-y-2">
+                    {engDaySchedule.map(({ eng, assigned, allActive }) => {
+                      const engName = ar ? eng.nameAr || eng.name : eng.name;
+                      const totalHours = assigned.reduce((s, a) => s + a.hours, 0);
+                      const hasMore = allActive.length > assigned.length;
 
-                        {/* رأس المشروع */}
-                        <div className="flex items-start justify-between gap-2 p-4 pb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-bold text-gray-400">#{idx + 1}</span>
-                              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                {ar ? p.nameAr || p.name : p.name}
-                              </p>
+                      return (
+                        <div key={eng.id} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                          {/* رأس الموظف */}
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-blue-800 to-blue-600">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                {engName.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-white leading-tight">{engName}</p>
+                                <p className="text-[10px] text-blue-200">
+                                  {ar ? departmentLabels[eng.department].ar : departmentLabels[eng.department].en}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-medium"
-                                style={{ background: departmentColors[p.department] }}>
-                                {ar ? dl.ar : dl.en}
-                              </span>
-                              {p.phase && (
-                                <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-1.5 py-0.5 rounded-full">
-                                  {p.phase.replace('-', ' ')}
+                            <div className="text-end">
+                              <p className="text-base font-black text-white leading-none">{totalHours}h</p>
+                              {hasMore && (
+                                <p className="text-[9px] text-amber-300 mt-0.5">
+                                  {ar ? `${allActive.length} مشاريع (تدوير)` : `${allActive.length} projs (rotating)`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* شريط توزيع الألوان */}
+                          <div className="flex h-2">
+                            {assigned.map((a, i) => (
+                              <div key={i} className="h-full transition-all"
+                                title={`${ar ? a.project.nameAr || a.project.name : a.project.name}: ${a.hours}h`}
+                                style={{ flex: a.hours, background: departmentColors[a.project.department] }} />
+                            ))}
+                          </div>
+
+                          {/* مشاريع اليوم */}
+                          {assigned.map((a, i) => {
+                            const projName = ar ? a.project.nameAr || a.project.name : a.project.name;
+                            const dl = departmentLabels[a.project.department];
+                            return (
+                              <div key={i}
+                                className={`flex items-center justify-between px-3 py-2 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                    style={{ background: departmentColors[a.project.department] }} />
+                                  <div className="min-w-0">
+                                    <p className="text-gray-800 dark:text-gray-200 font-medium truncate max-w-[160px]">{projName}</p>
+                                    <p className="text-[9px] text-gray-400">{ar ? dl.ar : dl.en} · {ar ? 'تسليم:' : 'due:'} {a.project.deadline}</p>
+                                  </div>
+                                </div>
+                                <span className="font-black text-blue-600 dark:text-blue-400 flex-shrink-0 text-sm">{a.hours}h</span>
+                              </div>
+                            );
+                          })}
+
+                          {/* الإجمالي */}
+                          <div className="flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 border-t border-green-100 dark:border-green-800">
+                            <span className="text-[10px] font-semibold text-gray-500">
+                              {ar ? 'إجمالي الدوام' : 'Total shift'}
+                              {hasMore && (
+                                <span className="text-amber-500 mr-1">
+                                  {ar ? `· يتناوب على ${allActive.length} مشاريع` : `· rotating across ${allActive.length} projs`}
                                 </span>
                               )}
-                              <span className="text-[9px] text-gray-400">📅 {p.deadline}</span>
-                            </div>
-                          </div>
-                          <div className="text-end flex-shrink-0">
-                            <p className="text-2xl font-black text-blue-600 leading-none">{p.hPerEngPerDay}h</p>
-                            <p className="text-[10px] text-gray-400">{ar ? 'لكل مهندس' : 'per eng'}</p>
+                            </span>
+                            <span className="text-sm font-black text-green-700 dark:text-green-400">
+                              {totalHours}h ✓
+                            </span>
                           </div>
                         </div>
-
-                        {/* شريط التوزيع */}
-                        <div className="px-4 pb-2">
-                          <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: departmentColors[p.department] }} />
-                          </div>
-                        </div>
-
-                        {/* جدول الموظفين */}
-                        {projEngineers.length > 0 && (
-                          <div className="border-t border-gray-100 dark:border-gray-700">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-gray-100 dark:bg-gray-700/60">
-                                  <th className="px-3 py-1.5 text-start text-[10px] font-semibold text-gray-500">
-                                    {ar ? 'اسم الموظف' : 'Engineer'}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-start text-[10px] font-semibold text-gray-500">
-                                    {ar ? 'القسم' : 'Dept'}
-                                  </th>
-                                  <th className="px-3 py-1.5 text-end text-[10px] font-semibold text-blue-600">
-                                    {ar ? 'الساعات' : 'Hours'}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {projEngineers.map((eng, ei) => (
-                                  <tr key={eng.id}
-                                    className={`border-t border-gray-100 dark:border-gray-700/50 ${ei % 2 !== 0 ? 'bg-white/60 dark:bg-gray-800/20' : ''}`}>
-                                    <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">
-                                      {ar ? eng.nameAr || eng.name : eng.name}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <span className="text-[9px] text-white px-1.5 py-0.5 rounded-full"
-                                        style={{ background: departmentColors[eng.department] }}>
-                                        {ar ? departmentLabels[eng.department].ar : departmentLabels[eng.department].en}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-end font-black text-blue-600">
-                                      {p.hPerEngPerDay}h
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="border-t-2 border-gray-200 dark:border-gray-600 bg-blue-50 dark:bg-blue-900/20">
-                                  <td className="px-3 py-2 text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                                    {ar ? `الإجمالي (${projEngineers.length} موظف)` : `Total (${projEngineers.length} eng)`}
-                                  </td>
-                                  <td />
-                                  <td className="px-3 py-2 text-end font-black text-blue-700 dark:text-blue-400">
-                                    {Math.round(projEngineers.length * p.hPerEngPerDay * 10) / 10}h
-                                  </td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* ملخص كل موظف = 8.5h */}
-                  {(() => {
-                    // جمع كل الموظفين الفريدين عبر المشاريع
-                    const engMap = new Map<string, { eng: typeof engineers[0]; projects: { name: string; hours: number; color: string }[] }>();
-                    dayProjects.forEach(p => {
-                      p.engineers.forEach(id => {
-                        const eng = engineers.find(e => e.id === id);
-                        if (!eng || eng.role === 'admin') return;
-                        if (!engMap.has(id)) engMap.set(id, { eng, projects: [] });
-                        engMap.get(id)!.projects.push({
-                          name: ar ? p.nameAr || p.name : p.name,
-                          hours: p.hPerEngPerDay,
-                          color: departmentColors[p.department],
-                        });
-                      });
-                    });
-                    const engList = Array.from(engMap.values());
-                    if (engList.length === 0) return null;
-                    return (
-                      <div className="border-t-2 border-blue-100 dark:border-blue-800 pt-3 space-y-2">
-                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                          {ar ? '📋 دوام الموظفين (8.5h / يوم):' : '📋 Engineer Schedule (8.5h/day):'}
-                        </p>
-                        {engList.map(({ eng, projects }) => (
-                          <div key={eng.id} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                            {/* رأس الموظف */}
-                            <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-700 to-blue-600">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[10px]">
-                                  {(ar ? eng.nameAr || eng.name : eng.name).charAt(0)}
-                                </div>
-                                <span className="text-xs font-bold text-white">
-                                  {ar ? eng.nameAr || eng.name : eng.name}
-                                </span>
-                              </div>
-                              <span className="text-sm font-black text-white">8.5h</span>
-                            </div>
-                            {/* شريط توزيع الألوان */}
-                            <div className="flex h-2">
-                              {projects.map((pr, i) => (
-                                <div key={i} className="h-full" title={`${pr.name}: ${pr.hours}h`}
-                                  style={{ flex: pr.hours, background: pr.color }} />
-                              ))}
-                            </div>
-                            {/* مشاريع الموظف */}
-                            {projects.map((pr, i) => (
-                              <div key={i} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full" style={{ background: pr.color }} />
-                                  <span className="text-gray-700 dark:text-gray-300 truncate max-w-[160px]">{pr.name}</span>
-                                </div>
-                                <span className="font-bold text-blue-600 flex-shrink-0">{pr.hours}h</span>
-                              </div>
-                            ))}
-                            {/* الإجمالي */}
-                            <div className="flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-100 dark:border-blue-800">
-                              <span className="text-[10px] font-semibold text-gray-500">{ar ? 'إجمالي الدوام' : 'Total shift'}</span>
-                              <span className="text-sm font-black text-blue-700 dark:text-blue-400">8.5h ✓</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                      );
+                    })}
+                  </div>
                 </>
               )}
             </div>

@@ -105,7 +105,7 @@ const Schedule: React.FC = () => {
     );
     const count = active.length || 1;
     // كل مشروع يأخذ حصة متساوية من الـ 8.5h
-    const hPerProject = Math.round(8.5 / count);
+    const hPerProject = Math.round((8.5 / count) * 2) / 2; // تقريب لأقرب 0.5
     return active
       .map(p => ({ ...p, hPerEngPerDay: hPerProject }))
       .sort((a, b) => (a.nameAr || a.name).localeCompare(b.nameAr || b.name, 'ar'));
@@ -467,7 +467,7 @@ const Schedule: React.FC = () => {
               p => p.startDate && p.deadline && p.startDate <= date && date <= p.deadline
             );
             const activeCount = activeOnDate.length || 1;
-            const hPerProject = Math.round(8.5 / activeCount);
+            const hPerProject = Math.round((8.5 / activeCount) * 2) / 2;
 
             const projectsWithHours = dProjects.map(p => ({ ...p, hDay: hPerProject }));
 

@@ -3,6 +3,7 @@ export type Theme = 'light' | 'dark';
 export type Department = 'architectural' | 'structural' | 'mechanical' | 'electrical';
 export type ProjectStatus = 'on-time' | 'at-risk' | 'delayed' | 'completed' | 'planning';
 export type ProjectType = 'factory' | 'commercial' | 'gas-station' | 'residential' | 'other';
+export type ProjectPhase = 'concept' | 'schematic' | 'detailed-design' | 'ifc' | 'tender-document' | 'construction' | 'handover';
 export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'overdue';
 export type UserRole = 'admin' | 'project-manager' | 'department-manager' | 'engineer' | 'sales-manager' | 'general-manager';
 export type ClientStatus = 'lead' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
@@ -45,6 +46,7 @@ export interface Project {
   progress: number;
   priority: Priority;
   projectType?: ProjectType;
+  phase?: ProjectPhase;
   description?: string;
   value?: number;
   managerId?: string;

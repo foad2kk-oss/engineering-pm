@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useData } from '../contexts/DataContext';
 import { statusConfig, departmentColors, departmentLabels } from '../data/mockData';
-import { BarChart3, Printer, Table2, X, Calendar, Clock } from 'lucide-react';
+import { BarChart3, Printer, Table2, X, Calendar, Clock, Pencil } from 'lucide-react';
 import type { Department } from '../types';
 
 const YEAR  = 2026;
@@ -812,28 +812,29 @@ const Schedule: React.FC = () => {
                           {/* مشاريع اليوم — قابلة للتعديل */}
                           {rows.map((r, i) => (
                             <div key={i}
-                              className={`flex items-center gap-2 px-3 py-2 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
+                              className={`flex items-center gap-2 px-3 py-2.5 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
                               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
 
                               {/* اسم المشروع قابل للتعديل */}
-                              <input
-                                className="flex-1 min-w-0 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none text-gray-800 dark:text-gray-200 font-medium text-xs py-0.5 truncate"
-                                value={r.name}
-                                title={ar ? 'انقر للتعديل' : 'Click to edit'}
-                                onChange={e => setManualEdits(prev => ({
-                                  ...prev,
-                                  [r.key]: { name: e.target.value, hours: r.hours },
-                                }))}
-                              />
+                              <div className="flex-1 min-w-0 relative group/name">
+                                <input
+                                  className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 text-gray-800 dark:text-gray-200 font-medium text-xs"
+                                  value={r.name}
+                                  onChange={e => setManualEdits(prev => ({
+                                    ...prev,
+                                    [r.key]: { name: e.target.value, hours: r.hours },
+                                  }))}
+                                />
+                                <Pencil size={9} className="absolute end-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                              </div>
 
                               {/* الساعات قابلة للتعديل */}
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <input
                                   type="number"
                                   min={0.5} max={12} step={0.5}
-                                  className="w-12 text-center font-black text-blue-600 dark:text-blue-400 text-sm bg-transparent border border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none rounded px-1 py-0.5"
+                                  className="w-14 text-center font-black text-blue-600 dark:text-blue-400 text-sm bg-white dark:bg-gray-700 border border-blue-200 dark:border-blue-700 rounded-lg px-1 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-300"
                                   value={r.hours}
-                                  title={ar ? 'عدد الساعات' : 'Hours'}
                                   onChange={e => {
                                     const h = Math.max(0.5, Math.round(parseFloat(e.target.value) * 2) / 2) || r.hours;
                                     setManualEdits(prev => ({
@@ -842,7 +843,7 @@ const Schedule: React.FC = () => {
                                     }));
                                   }}
                                 />
-                                <span className="text-gray-400 text-[10px]">h</span>
+                                <span className="text-gray-400 text-[10px] font-bold">h</span>
                               </div>
                             </div>
                           ))}

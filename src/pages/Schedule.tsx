@@ -815,28 +815,33 @@ const Schedule: React.FC = () => {
                               className={`flex items-center gap-2 px-3 py-2.5 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
                               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
 
-                              {/* اسم المشروع قابل للتعديل */}
-                              <div className="flex-1 min-w-0 relative group/name">
-                                <input
+                              {/* اسم المشروع — قائمة منسدلة بالمشاريع المخزنة */}
+                              <div className="flex-1 min-w-0">
+                                <select
                                   className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 text-gray-800 dark:text-gray-200 font-medium text-xs"
                                   value={r.name}
                                   onChange={e => setManualEdits(prev => ({
                                     ...prev,
                                     [r.key]: { name: e.target.value, hours: r.hours },
                                   }))}
-                                />
-                                <Pencil size={9} className="absolute end-2 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                                >
+                                  {projects.map(p => {
+                                    const pName = ar ? p.nameAr || p.name : p.name;
+                                    return <option key={p.id} value={pName}>{pName}</option>;
+                                  })}
+                                </select>
                               </div>
 
-                              {/* الساعات قابلة للتعديل */}
+                              {/* الساعات قابلة للتعديل — يسمح بالصفر */}
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <input
                                   type="number"
-                                  min={0.5} max={12} step={0.5}
+                                  min={0} max={12} step={0.5}
                                   className="w-14 text-center font-black text-blue-600 dark:text-blue-400 text-sm bg-white dark:bg-gray-700 border border-blue-200 dark:border-blue-700 rounded-lg px-1 py-1 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-300"
                                   value={r.hours}
                                   onChange={e => {
-                                    const h = Math.max(0.5, Math.round(parseFloat(e.target.value) * 2) / 2) || r.hours;
+                                    const parsed = parseFloat(e.target.value);
+                                    const h = isNaN(parsed) ? 0 : Math.max(0, Math.round(parsed * 2) / 2);
                                     setManualEdits(prev => ({
                                       ...prev,
                                       [r.key]: { name: r.name, hours: h },

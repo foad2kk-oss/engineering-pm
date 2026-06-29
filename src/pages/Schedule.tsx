@@ -47,6 +47,8 @@ const Schedule: React.FC = () => {
   const [view,          setView]          = useState<'gantt' | 'table' | 'bydate'>('gantt');
   const [filterProject, setFilterProject] = useState<string>('all');
   const [selectedDay,   setSelectedDay]   = useState<string | null>(null);
+  // manual overrides: { [engId-projIdx]: { name?: string; hours?: number } }
+  const [manualEdits, setManualEdits] = useState<Record<string, { name: string; hours: number }>>({});
   const printRef = useRef<HTMLDivElement>(null);
 
   // Unique project names for filter dropdown
@@ -121,6 +123,13 @@ const Schedule: React.FC = () => {
       { project: sorted[i1], hours: 4.5 },
     ];
   }, []);
+
+  // Clear manual edits whenever the selected day changes
+  const prevDayRef = useRef<string | null>(null);
+  if (prevDayRef.current !== selectedDay) {
+    prevDayRef.current = selectedDay;
+    if (Object.keys(manualEdits).length > 0) setManualEdits({});
+  }
 
   // Day panel: all projects active on selectedDay
   const dayProjects = useMemo(() => {
@@ -747,8 +756,24 @@ const Schedule: React.FC = () => {
                   <div className="space-y-2">
                     {engDaySchedule.map(({ eng, assigned, allActive }) => {
                       const engName = ar ? eng.nameAr || eng.name : eng.name;
-                      const totalHours = assigned.reduce((s, a) => s + a.hours, 0);
                       const hasMore = allActive.length > assigned.length;
+
+                      // merge auto-assigned with manual overrides
+                      const rows = assigned.map((a, i) => {
+                        const key = `${eng.id}-${i}`;
+                        const override = manualEdits[key];
+                        return {
+                          key,
+                          color: departmentColors[a.project.department],
+                          dl: departmentLabels[a.project.department],
+                          deadline: a.project.deadline,
+                          name: override?.name ?? (ar ? a.project.nameAr || a.project.name : a.project.name),
+                          hours: override?.hours ?? a.hours,
+                          autoName: ar ? a.project.nameAr || a.project.name : a.project.name,
+                          autoHours: a.hours,
+                        };
+                      });
+                      const totalHours = rows.reduce((s, r) => s + r.hours, 0);
 
                       return (
                         <div key={eng.id} className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -777,32 +802,50 @@ const Schedule: React.FC = () => {
 
                           {/* شريط توزيع الألوان */}
                           <div className="flex h-2">
-                            {assigned.map((a, i) => (
+                            {rows.map((r, i) => (
                               <div key={i} className="h-full transition-all"
-                                title={`${ar ? a.project.nameAr || a.project.name : a.project.name}: ${a.hours}h`}
-                                style={{ flex: a.hours, background: departmentColors[a.project.department] }} />
+                                title={`${r.name}: ${r.hours}h`}
+                                style={{ flex: r.hours, background: r.color }} />
                             ))}
                           </div>
 
-                          {/* مشاريع اليوم */}
-                          {assigned.map((a, i) => {
-                            const projName = ar ? a.project.nameAr || a.project.name : a.project.name;
-                            const dl = departmentLabels[a.project.department];
-                            return (
-                              <div key={i}
-                                className={`flex items-center justify-between px-3 py-2 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                    style={{ background: departmentColors[a.project.department] }} />
-                                  <div className="min-w-0">
-                                    <p className="text-gray-800 dark:text-gray-200 font-medium truncate max-w-[160px]">{projName}</p>
-                                    <p className="text-[9px] text-gray-400">{ar ? dl.ar : dl.en} · {ar ? 'تسليم:' : 'due:'} {a.project.deadline}</p>
-                                  </div>
-                                </div>
-                                <span className="font-black text-blue-600 dark:text-blue-400 flex-shrink-0 text-sm">{a.hours}h</span>
+                          {/* مشاريع اليوم — قابلة للتعديل */}
+                          {rows.map((r, i) => (
+                            <div key={i}
+                              className={`flex items-center gap-2 px-3 py-2 text-xs ${i % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/30' : 'bg-white dark:bg-transparent'}`}>
+                              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
+
+                              {/* اسم المشروع قابل للتعديل */}
+                              <input
+                                className="flex-1 min-w-0 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none text-gray-800 dark:text-gray-200 font-medium text-xs py-0.5 truncate"
+                                value={r.name}
+                                title={ar ? 'انقر للتعديل' : 'Click to edit'}
+                                onChange={e => setManualEdits(prev => ({
+                                  ...prev,
+                                  [r.key]: { name: e.target.value, hours: r.hours },
+                                }))}
+                              />
+
+                              {/* الساعات قابلة للتعديل */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <input
+                                  type="number"
+                                  min={0.5} max={12} step={0.5}
+                                  className="w-12 text-center font-black text-blue-600 dark:text-blue-400 text-sm bg-transparent border border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none rounded px-1 py-0.5"
+                                  value={r.hours}
+                                  title={ar ? 'عدد الساعات' : 'Hours'}
+                                  onChange={e => {
+                                    const h = Math.max(0.5, Math.round(parseFloat(e.target.value) * 2) / 2) || r.hours;
+                                    setManualEdits(prev => ({
+                                      ...prev,
+                                      [r.key]: { name: r.name, hours: h },
+                                    }));
+                                  }}
+                                />
+                                <span className="text-gray-400 text-[10px]">h</span>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
 
                           {/* الإجمالي */}
                           <div className="flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-900/20 border-t border-green-100 dark:border-green-800">
@@ -814,8 +857,8 @@ const Schedule: React.FC = () => {
                                 </span>
                               )}
                             </span>
-                            <span className="text-sm font-black text-green-700 dark:text-green-400">
-                              {totalHours}h ✓
+                            <span className={`text-sm font-black ${totalHours === 8.5 ? 'text-green-700 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {totalHours}h {totalHours === 8.5 ? '✓' : '⚠'}
                             </span>
                           </div>
                         </div>
